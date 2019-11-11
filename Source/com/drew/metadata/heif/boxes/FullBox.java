@@ -20,31 +20,34 @@
  */
 package com.drew.metadata.heif.boxes;
 
-import com.drew.lang.SequentialReader;
 
 import java.io.IOException;
+
+import com.drew.lang.RandomAccessReader;
 
 /**
  * ISO/IEC 14496-12:2015 pg.7
  */
 public class FullBox extends Box
 {
-    byte[] flags;
-    int version;
+	byte[] flags;
+	int version;
 
-    public FullBox(SequentialReader reader, Box box) throws IOException
-    {
-        super(box);
+	public FullBox(RandomAccessReader reader, Box box) throws IOException
+	{
+		super(box);
 
-        version = reader.getUInt8();
-        flags = reader.getBytes(3);
-    }
+		version = reader.getUInt8();
+		flags = reader.getBytes(3);
+		
+		countBytesRead = reader.getPosition() - offset;
+	}
 
-    public FullBox(FullBox box)
-    {
-        super(box);
+	public FullBox(FullBox box)
+	{
+		super(box);
 
-        this.version = box.version;
-        this.flags = box.flags;
-    }
+		this.version = box.version;
+		this.flags = box.flags;
+	}
 }

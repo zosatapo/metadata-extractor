@@ -32,7 +32,7 @@ public final class BufferBoundsException extends IOException
 {
     private static final long serialVersionUID = 2911102837808946396L;
 
-    public BufferBoundsException(int index, int bytesRequested, long bufferLength)
+    public BufferBoundsException(long index, long bytesRequested, long bufferLength)
     {
         super(getMessage(index, bytesRequested, bufferLength));
     }
@@ -42,7 +42,7 @@ public final class BufferBoundsException extends IOException
         super(message);
     }
 
-    private static String getMessage(int index, int bytesRequested, long bufferLength)
+    private static String getMessage(long index, long bytesRequested, long bufferLength)
     {
         if (index < 0)
             return String.format("Attempt to read from buffer using a negative index (%d)", index);

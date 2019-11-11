@@ -18,112 +18,121 @@
  *    https://drewnoakes.com/code/exif/
  *    https://github.com/drewnoakes/metadata-extractor
  */
-
 package com.drew.lang;
 
-import com.drew.lang.annotations.NotNull;
-
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
-/**
- * Provides methods to read specific values from a {@link RandomAccessFile}, with a consistent, checked exception structure for
- * issues.
- *
- * @author Drew Noakes https://drewnoakes.com
- * */
 public class RandomAccessFileReader extends RandomAccessReader
 {
-    @NotNull
-    private final RandomAccessFile _file;
-    private final long _length;
-    private int _currentIndex;
+	
+	private final RandomAccessFile _file;
+	private final long _length;
+	private long _currentIndex;
 
-    private final int _baseOffset;
+	public RandomAccessFileReader( RandomAccessFile file) throws IOException
+	{
+		if (file == null) throw new NullPointerException();
 
-    @SuppressWarnings({ "ConstantConditions" })
-    @com.drew.lang.annotations.SuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Design intent")
-    public RandomAccessFileReader(@NotNull RandomAccessFile file) throws IOException
+		_file = file;
+		_length = _file.length();
+	}
+
+	@Override
+    public long toUnshiftedOffset(long localOffset)
     {
-        this(file, 0);
+        return localOffset;
     }
+	
+	@Override
+	public long getLength()
+	{
+		return _length;
+	}
 
-    @SuppressWarnings({ "ConstantConditions" })
-    @com.drew.lang.annotations.SuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Design intent")
-    public RandomAccessFileReader(@NotNull RandomAccessFile file, int baseOffset) throws IOException
-    {
-        if (file == null)
-            throw new NullPointerException();
+	@Override
+	public byte getByte(long index) throws IOException
+	{
+		if (index != _currentIndex) seek(index);
 
-        _file = file;
-        _baseOffset = baseOffset;
-        _length = _file.length();
-    }
+		final int b = _file.read();
+		if (b < 0) throw new BufferBoundsException("Unexpected end of file encountered.");
+		assert (b <= 0xff);
+		_currentIndex++;
+		return (byte) b;
+	}
 
-    @Override
-    public int toUnshiftedOffset(int localOffset)
-    {
-        return localOffset + _baseOffset;
-    }
+	@Override
+	
+	public byte[] getBytes(long index, long count) throws IOException
+	{
+		validateIndex(index, count);
 
-    @Override
-    public long getLength()
-    {
-        return _length;
-    }
+		if (index != _currentIndex) seek(index);
 
-    @Override
-    public byte getByte(int index) throws IOException
-    {
-        if (index != _currentIndex)
-            seek(index);
+		byte[] bytes = new byte[(int) count];
+		final int bytesRead = _file.read(bytes);
+		_currentIndex += bytesRead;
+		if (bytesRead != count) throw new BufferBoundsException("Unexpected end of file encountered.");
+		return bytes;
+	}
 
-        final int b = _file.read();
-        if (b < 0)
-            throw new BufferBoundsException("Unexpected end of file encountered.");
-        assert (b <= 0xff);
-        _currentIndex++;
-        return (byte)b;
-    }
+	public void seek(long index) throws IOException
+	{
+		if (index == _currentIndex) return;
 
-    @Override
-    @NotNull
-    public byte[] getBytes(int index, int count) throws IOException
-    {
-        validateIndex(index, count);
+		_file.seek(index);
+		_currentIndex = index;
+	}
 
-        if (index != _currentIndex)
-            seek(index);
+	public long getPosition() throws IOException
+	{
+		return _file.getFilePointer();
+	}
 
-        byte[] bytes = new byte[count];
-        final int bytesRead = _file.read(bytes);
-        _currentIndex += bytesRead;
-        if (bytesRead != count)
-            throw new BufferBoundsException("Unexpected end of file encountered.");
-        return bytes;
-    }
+	@Override
+	protected boolean isValidIndex(long index, long bytesRequested) throws IOException
+	{
+		return bytesRequested >= 0 && index >= 0 && (long) index + (long) bytesRequested - 1L < _length;
+	}
 
-    private void seek(final int index) throws IOException
-    {
-        if (index == _currentIndex)
-            return;
+	@Override
+	protected void validateIndex(final long index, final long bytesRequested) throws IOException
+	{
+		if (!isValidIndex(index, bytesRequested)) throw new BufferBoundsException((int)index, (int)bytesRequested, _length);
+	}
 
-        _file.seek(index);
-        _currentIndex = index;
-    }
+	@Override
+	public void skip(long n) throws IOException
+	{
+		if (n < 0) throw new IllegalArgumentException("n must be zero or greater.");
 
-    @Override
-    protected boolean isValidIndex(int index, int bytesRequested) throws IOException
-    {
-        return bytesRequested >= 0
-                && index >= 0
-                && (long)index + (long)bytesRequested - 1L < _length;
-    }
+		long skippedCount = skipInternal(n);
 
-    @Override
-    protected void validateIndex(final int index, final int bytesRequested) throws IOException
-    {
-        if (!isValidIndex(index, bytesRequested))
-            throw new BufferBoundsException(index, bytesRequested, _length);
-    }
+		if (skippedCount != n) throw new EOFException(
+				String.format("Unable to skip. Requested %d bytes but skipped %d.", n, skippedCount));
+	}
+
+	@Override
+	public boolean trySkip(long n) throws IOException
+	{
+		if (n < 0) throw new IllegalArgumentException("n must be zero or greater.");
+
+		return skipInternal(n) == n;
+	}
+
+	private long skipInternal(long n) throws IOException
+	{
+		long skippedTotal = 0;
+		while (skippedTotal != n)
+		{
+			long skipped = _file.skipBytes((int) (n - skippedTotal));
+			assert (skipped >= 0);
+			skippedTotal += skipped;
+			if (skipped == 0) break;
+		}
+		_currentIndex += skippedTotal;
+		return skippedTotal;
+	}
 }

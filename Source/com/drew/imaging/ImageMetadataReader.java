@@ -181,7 +181,7 @@ public class ImageMetadataReader
             case Eps:
                 return EpsMetadataReader.readMetadata(inputStream);
             case Heif:
-                return HeifMetadataReader.readMetadata(inputStream);
+                return HeifMetadataReader.readMetadata(new RandomAccessStreamReader(inputStream, RandomAccessStreamReader.DEFAULT_CHUNK_LENGTH, streamLength));
             case Unknown:
                 throw new ImageProcessingException("File format could not be determined");
             default:

@@ -20,37 +20,36 @@
  */
 package com.drew.imaging.heif;
 
-import com.drew.lang.SequentialReader;
-import com.drew.lang.annotations.NotNull;
+import java.io.IOException;
+
+import com.drew.lang.RandomAccessReader;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.heif.HeifDirectory;
 import com.drew.metadata.heif.boxes.Box;
 
-import java.io.IOException;
-
-public abstract class HeifHandler<T extends HeifDirectory>
+public abstract class HeifHandler
 {
-    protected Metadata metadata;
-    protected T directory;
+	protected Metadata metadata;
+	protected HeifDirectory directory;
 
-    public HeifHandler(Metadata metadata)
-    {
-        this.metadata = metadata;
-        this.directory = getDirectory();
-        metadata.addDirectory(directory);
-    }
+	public HeifHandler(Metadata metadata)
+	{
+		this.metadata = metadata;
+		this.directory = new HeifDirectory();
+		this.metadata.addDirectory(directory);
+	}
 
-    protected abstract T getDirectory();
+	protected abstract boolean shouldAcceptBox(Box box);
 
-    protected abstract boolean shouldAcceptBox(@NotNull Box box);
+	protected abstract boolean shouldAcceptContainer(Box box);
 
-    protected abstract boolean shouldAcceptContainer(@NotNull Box box);
+	protected abstract void processBox(int depth, Box box, RandomAccessReader reader) throws IOException;
 
-    protected abstract HeifHandler processBox(@NotNull Box box, @NotNull byte[] payload) throws IOException;
+	/**
+	 * There is potential for a box to both contain other boxes and contain
+	 * information, so this method will handle those occurences.
+	 */
+	protected abstract void processContainer(int depth, Box box, RandomAccessReader reader) throws IOException;
 
-    /**
-     * There is potential for a box to both contain other boxes and contain information, so this method will
-     * handle those occurences.
-     */
-    protected abstract void processContainer(@NotNull Box box, @NotNull SequentialReader reader) throws IOException;
+	protected abstract void processCompleted(int depth, RandomAccessReader reader) throws IOException;
 }

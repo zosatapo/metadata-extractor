@@ -20,28 +20,67 @@
  */
 package com.drew.imaging.heif;
 
-import com.drew.imaging.mp4.Mp4Reader;
-import com.drew.lang.annotations.NotNull;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.zip.DataFormatException;
+
+import com.drew.lang.RandomAccessReader;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.heif.HeifBoxHandler;
-import com.drew.metadata.mp4.Mp4BoxHandler;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.zip.DataFormatException;
 
 public class HeifMetadataReader
 {
-    @NotNull
-    public static Metadata readMetadata(@NotNull InputStream inputStream) throws IOException
-    {
-        try {
-            Metadata metadata = new Metadata();
-            new HeifReader().extract(metadata, inputStream, new HeifBoxHandler(metadata));
-            return metadata;
-        } catch (DataFormatException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
+	public static Metadata readMetadata(File imageFile) throws IOException
+	{
+		RandomAccessFile streamFile = new RandomAccessFile(imageFile, "rw");
+		try
+		{
+			return HeifMetadataReader.readMetadata(streamFile, streamFile.length());
+		}
+		finally
+		{
+			streamFile.close();
+		}
+	}
+
+	public static Metadata readMetadata(RandomAccessFile streamFile) throws IOException
+	{
+		return readMetadata(streamFile, streamFile.length());
+	}
+
+	public static Metadata readMetadata(RandomAccessFile streamFile, long streamLength) throws IOException
+	{
+		try
+		{
+			Metadata metadata = new Metadata();
+			HeifReader.extract(metadata, streamFile, streamLength, new HeifBoxHandler(metadata));
+			return metadata;
+		}
+		catch (DataFormatException e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public static Metadata readMetadata(RandomAccessReader reader) throws IOException
+	{
+		return readMetadata(reader, reader.getLength());
+	}
+
+	public static Metadata readMetadata(RandomAccessReader reader, long atomEnd) throws IOException
+	{
+		try
+		{
+			Metadata metadata = new Metadata();
+			HeifReader.extract(metadata, reader, atomEnd, new HeifBoxHandler(metadata));
+			return metadata;
+		}
+		catch (DataFormatException e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
 }

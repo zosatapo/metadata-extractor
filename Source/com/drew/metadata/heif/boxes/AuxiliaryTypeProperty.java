@@ -20,36 +20,46 @@
  */
 package com.drew.metadata.heif.boxes;
 
-import com.drew.lang.SequentialReader;
-
 import java.io.IOException;
-import java.nio.charset.Charset;
+
+import com.drew.lang.RandomAccessReader;
+import com.drew.metadata.heif.HeifDirectory;
 
 /**
  * ISO/IEC 23008-12:2017 pg.14
  */
 public class AuxiliaryTypeProperty extends FullBox
 {
-    String auxType;
-    int[] auxSubtype;
+	String auxType;
+	int[] auxSubtype;
 
-    public AuxiliaryTypeProperty(SequentialReader reader, Box box) throws IOException
-    {
-        super(reader, box);
+	public AuxiliaryTypeProperty(RandomAccessReader reader, Box box)
+			throws IOException
+	{
+		super(reader, box);
 
-        auxType = getZeroTerminatedString((int)box.size - 12, reader);
-        // auxSubtype
-    }
+		auxType = getZeroTerminatedString((int) box.size - 12, reader);
+		// auxSubtype
+		
+		countBytesRead = reader.getPosition() - offset;
+	}
 
-    private String getZeroTerminatedString(int maxLengthBytes, SequentialReader reader) throws IOException
-    {
-        StringBuilder stringBuilder = new StringBuilder();
-        for (int i = 0; i < maxLengthBytes; i++) {
-            stringBuilder.append((char)reader.getByte());
-            if (stringBuilder.charAt(stringBuilder.length() - 1) == 0) {
-                break;
-            }
-        }
-        return stringBuilder.toString().trim();
-    }
+	private String getZeroTerminatedString(int maxLengthBytes,
+			RandomAccessReader reader) throws IOException
+	{
+		StringBuilder stringBuilder = new StringBuilder();
+		for (int i = 0; i < maxLengthBytes; i++)
+		{
+			stringBuilder.append((char) reader.getByte());
+			if (stringBuilder.charAt(stringBuilder.length() - 1) == 0)
+			{
+				break;
+			}
+		}
+		return stringBuilder.toString().trim();
+	}
+	
+	public void addMetadata(HeifDirectory directory)
+	{
+	}
 }

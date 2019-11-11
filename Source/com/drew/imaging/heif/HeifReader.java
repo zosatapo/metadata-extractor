@@ -20,47 +20,74 @@
  */
 package com.drew.imaging.heif;
 
-import com.drew.lang.StreamReader;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.zip.DataFormatException;
+
+import com.drew.lang.RandomAccessFileReader;
+import com.drew.lang.RandomAccessReader;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.heif.boxes.Box;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.zip.DataFormatException;
-
 public class HeifReader
 {
-    public void extract(Metadata metadata, InputStream inputStream, HeifHandler handler) throws IOException, DataFormatException
-    {
-        StreamReader reader = new StreamReader(inputStream);
-        reader.setMotorolaByteOrder(true);
+	public static void extract(Metadata metadata, RandomAccessFile streamFile, long streamLength, HeifHandler handler)
+			throws IOException, DataFormatException
+	{
+		RandomAccessFileReader reader = new RandomAccessFileReader(streamFile);
+		reader.setMotorolaByteOrder(true);
+		processBoxes(0, reader, streamLength, handler);
+	}
 
-        processBoxes(reader, -1, handler);
-    }
+	public static void extract(Metadata metadata, RandomAccessReader reader,HeifHandler handler)
+			throws IOException, DataFormatException
+	{
+		reader.setMotorolaByteOrder(true);
+		processBoxes(0, reader, reader.getLength(), handler);
+	}
+	
+	public static void extract(Metadata metadata, RandomAccessReader reader, long atomEnd,HeifHandler handler)
+			throws IOException, DataFormatException
+	{
+		reader.setMotorolaByteOrder(true);
+		processBoxes(0, reader, atomEnd, handler);
+	}
+	
+	public static void processBoxes(int depth, RandomAccessReader reader, long atomEnd, HeifHandler handler)
+	{
+		try
+		{
+			while ((atomEnd == -1) ? true : reader.getPosition() < atomEnd)
+			{
 
-    private void processBoxes(StreamReader reader, long atomEnd, HeifHandler handler)
-    {
-        try {
-            while ((atomEnd == -1) ? true : reader.getPosition() < atomEnd) {
+				Box box = new Box(reader);
+				// Determine if fourCC is container/atom and process accordingly
+				// Unknown atoms will be skipped
 
-                Box box = new Box(reader);
+				if (handler.shouldAcceptContainer(box))
+				{
+					handler.processContainer(depth, box, reader);
+				}
+				else if (handler.shouldAcceptBox(box))
+				{
+					handler.processBox(depth, box, reader);
+				}
+				else if (box.size > 0)
+				{
+					reader.skip(box.size - box.countBytesRead);
+				}
+				else
+				{
+					break;
+				}
+			}
 
-                // Determine if fourCC is container/atom and process accordingly
-                // Unknown atoms will be skipped
+			handler.processCompleted(depth, reader);
 
-                if (handler.shouldAcceptContainer(box)) {
-                    handler.processContainer(box, reader);
-                    processBoxes(reader, box.size + reader.getPosition() - 8, handler);
-                } else if (handler.shouldAcceptBox(box)) {
-                    handler = handler.processBox(box, reader.getBytes((int)box.size - 8));
-                } else if (box.size > 1) {
-                    reader.skip(box.size - 8);
-                } else if (box.size == -1) {
-                    break;
-                }
-            }
-        } catch (IOException e) {
-            // Currently, reader relies on IOException to end
-        }
-    }
+		}
+		catch (IOException e)
+		{
+			// Currently, reader relies on IOException to end
+		}
+	}
 }

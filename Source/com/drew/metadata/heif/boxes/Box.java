@@ -20,37 +20,73 @@
  */
 package com.drew.metadata.heif.boxes;
 
-import com.drew.lang.SequentialReader;
-
 import java.io.IOException;
+
+import com.drew.lang.RandomAccessReader;
 
 /**
  * ISO/IEC 14496-12:2015 pg.6
  */
 public class Box
 {
-    public long size;
-    public String type;
-    String usertype;
+	private long firstsize;
+	private long largesize;
+	public String type;
+	public String usertype;
 
-    public Box(SequentialReader reader) throws IOException
-    {
-        this.size = reader.getUInt32();
-        this.type = reader.getString(4);
-        if (size == 1) {
-            size = reader.getInt64();
-        } else if (size == 0) {
-            size = -1;
-        }
-        if (type.equals("uuid")) {
-            usertype = reader.getString(16);
-        }
-    }
+	public long size;
+	public long offset;
+	public long countBytesRead;
 
-    public Box(Box box)
-    {
-        this.size = box.size;
-        this.type = box.type;
-        this.usertype = box.usertype;
-    }
+	public Box(RandomAccessReader reader) throws IOException
+	{
+		this.offset = reader.getPosition();
+		
+		this.firstsize = reader.getUInt32();
+		this.type = reader.getString(4);
+		if (firstsize == 1)
+		{
+			largesize = reader.getInt64();
+		}
+
+		if (type.equals("uuid"))
+		{
+			usertype = reader.getString(16);
+		}
+
+		countBytesRead = reader.getPosition() - offset;
+		size = (firstsize == 1) ? largesize : firstsize;
+	}
+
+	public Box(Box box)
+	{
+		this.offset = box.offset;
+		this.countBytesRead = box.countBytesRead;
+		this.size = box.size;
+
+		this.firstsize = box.firstsize;
+		this.largesize = box.largesize;
+		this.type = box.type;
+		this.usertype = box.usertype;
+	}
+
+	public boolean isLastBox()
+	{
+		return firstsize == 0;
+	}
+
+	public long countBytesUnread()
+	{
+		return this.size - this.countBytesRead;
+	}
+
+	public String toString()
+	{
+		StringBuffer sb = new StringBuffer();
+		sb.append("[" + this.getClass().getName() + "]-[" + this.type + "]");
+		sb.append(" offset=" + this.offset);
+		sb.append(", size=" + this.size);
+		sb.append(", bytesRead=" + this.countBytesRead);
+		return sb.toString();
+	}
 }

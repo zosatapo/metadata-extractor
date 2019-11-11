@@ -20,94 +20,157 @@
  */
 package com.drew.metadata.heif.boxes;
 
-import com.drew.lang.Charsets;
-import com.drew.lang.SequentialByteArrayReader;
-import com.drew.lang.SequentialReader;
-import com.drew.metadata.heif.HeifDirectory;
-
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
+
+import com.drew.lang.Charsets;
+import com.drew.lang.RandomAccessReader;
+import com.drew.metadata.heif.HeifDirectory;
 
 /**
  * ISO/IEC 14496-12:2015 pg.81-83
  */
 public class ItemInfoBox extends FullBox
 {
-    long entryCount;
-    ArrayList<ItemInfoEntry> entries;
+	long entryCount;
+	ItemInfoEntry[] entries;
+	ItemInfoEntry exifEntry = null;
 
-    public ItemInfoBox(SequentialReader reader, Box box) throws IOException
-    {
-        super(reader, box);
+	public ItemInfoBox(RandomAccessReader reader, Box box) throws IOException
+	{
+		super(reader, box);
 
-        if (version == 0) {
-            entryCount = reader.getUInt16();
-        } else {
-            entryCount = reader.getUInt32();
-        }
-        entries = new ArrayList<ItemInfoEntry>();
-        for (int i = 1; i <= entryCount; i++)
-        {
-            Box entryBox = new Box(reader);
-            SequentialByteArrayReader byteReader = new SequentialByteArrayReader(reader.getBytes((int)entryBox.size - 8));
-            entries.add(new ItemInfoEntry(byteReader, entryBox));
-        }
-    }
+		if (version == 0)
+		{
+			entryCount = reader.getUInt16();
+		}
+		else
+		{
+			entryCount = reader.getUInt32();
+		}
 
-    static class ItemInfoEntry extends FullBox
-    {
-        long itemID;
-        long itemProtectionIndex;
-        String itemName;
-        String contentType;
-        String contentEncoding;
-        String extensionType;
-        String itemType;
-        String itemUriType;
+		entries = new ItemInfoEntry[(int) entryCount + 1];
+		for (int i = 1; i <= entryCount; i++)
+		{
+			entries[i] = new ItemInfoEntry(reader, new Box(reader));
+			if ("Exif".equals(entries[i].itemType))
+			{
+				exifEntry = entries[i];
+			}
+		}
 
-        public ItemInfoEntry(SequentialReader reader, Box box) throws IOException
-        {
-            super(reader, box);
+		countBytesRead = reader.getPosition() - offset;
+	}
 
-            if ((version == 0) || (version == 1)) {
-                itemID = reader.getUInt16();
-                itemProtectionIndex = reader.getUInt16();
-                itemName = reader.getNullTerminatedString((int)(box.size - reader.getPosition()), Charsets.UTF_8);
-                contentType = reader.getNullTerminatedString((int)(box.size - reader.getPosition()), Charsets.UTF_8);
-                if (box.size - reader.getPosition() > 0) {
-                    extensionType = reader.getNullTerminatedString((int) (box.size - reader.getPosition()), Charsets.UTF_8);
-                }
-            }
-            if (version == 1) {
-                if (box.size - 28 >= 4) {
-                    contentEncoding = reader.getString(4);
-                }
-            }
-            if (version >= 2) {
-                if (version == 2) {
-                    itemID = reader.getUInt16();
-                } else if (version == 3) {
-                    itemID = reader.getUInt32();
-                }
-                itemProtectionIndex = reader.getUInt16();
-                itemType = reader.getString(4);
+	public ItemInfoEntry getExifItemInfoEntry()
+	{
+		return exifEntry;
+	}
+	
+	public static class ItemInfoEntry extends FullBox
+	{
+		public long itemID;
+		public long itemProtectionIndex;
+		public String itemName;
+		public String contentType;
+		public String contentEncoding;
+		public String extensionType;
+		public String itemType;
+		public String itemUriType;
 
-                itemName = reader.getNullTerminatedString((int)(box.size - reader.getPosition()), Charsets.UTF_8);
-                if (itemType.equals("mime")) {
-                    contentType = reader.getNullTerminatedString((int)(box.size - reader.getPosition()), Charsets.UTF_8);
-                    if (box.size - reader.getPosition() > 0) {
-                        contentEncoding = reader.getNullTerminatedString((int)(box.size - reader.getPosition()), Charsets.UTF_8);
-                    }
-                } else if (itemType.equals("uri ")) {
-                    itemUriType = reader.getString((int)(box.size - reader.getPosition()));
-                }
-            }
-        }
-    }
+		public ItemInfoEntry(RandomAccessReader reader, Box box) throws IOException
+		{
+			super(reader, box);
 
-    public void addMetadata(HeifDirectory directory)
-    {
+			int remainBytes = 0;
 
-    }
+			if ((version == 0) || (version == 1))
+			{
+				itemID = reader.getUInt16();
+				itemProtectionIndex = reader.getUInt16();
+
+				remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+				if (remainBytes > 0)
+				{
+					itemName = reader.getNullTerminatedString(remainBytes, Charsets.UTF_8);
+
+					remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+					if (remainBytes > 0)
+					{
+						contentType = reader.getNullTerminatedString(remainBytes, Charsets.UTF_8);
+
+						remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+						if (remainBytes > 0)
+						{
+							extensionType = reader.getNullTerminatedString(remainBytes, Charsets.UTF_8);
+						}
+					}
+
+				}
+
+			}
+
+			if (version == 1)
+			{
+				remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+				if (remainBytes >= 4)
+				{
+					contentEncoding = reader.getString(4);
+				}
+			}
+
+			if (version >= 2)
+			{
+				if (version == 2)
+				{
+					itemID = reader.getUInt16();
+				}
+				else if (version == 3)
+				{
+					itemID = reader.getUInt32();
+				}
+
+				itemProtectionIndex = reader.getUInt16();
+				itemType = reader.getString(4);
+
+				remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+				if (remainBytes > 0)
+				{
+					itemName = reader.getNullTerminatedString(remainBytes, Charsets.UTF_8);
+					if (itemType.equals("mime"))
+					{
+						remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+						if (remainBytes > 0)
+						{
+							contentType = reader.getNullTerminatedString(remainBytes, Charsets.UTF_8);
+
+							remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+							if (remainBytes > 0)
+							{
+								contentEncoding = reader.getNullTerminatedString(remainBytes, Charsets.UTF_8);
+							}
+						}
+					}
+					else if (itemType.equals("uri"))
+					{
+						remainBytes = (int) (this.size - (reader.getPosition() - this.offset));
+						if (remainBytes > 0)
+						{
+							itemUriType = reader.getString(remainBytes);
+						}
+
+					}
+				}
+			}
+
+			countBytesRead = reader.getPosition() - offset;
+
+			//System.out.println(itemID + ", " + itemProtectionIndex + ", " + itemType);
+		}
+
+	}
+
+	public void addMetadata(HeifDirectory directory)
+	{
+
+	}
 }

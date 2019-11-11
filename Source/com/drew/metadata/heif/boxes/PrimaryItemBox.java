@@ -20,25 +20,30 @@
  */
 package com.drew.metadata.heif.boxes;
 
-import com.drew.lang.SequentialReader;
-
 import java.io.IOException;
+
+import com.drew.lang.RandomAccessReader;
 
 /**
  * ISO/IEC 14496-12:2015 pg.80
  */
 public class PrimaryItemBox extends FullBox
 {
-    long itemID;
+	long itemID;
 
-    public PrimaryItemBox(SequentialReader reader, Box box) throws IOException
-    {
-        super(reader, box);
+	public PrimaryItemBox(RandomAccessReader reader, Box box) throws IOException
+	{
+		super(reader, box);
 
-        if (version == 0) {
-            itemID = reader.getUInt16();
-        } else {
-            itemID = reader.getUInt32();
-        }
-    }
+		if (version == 0)
+		{
+			itemID = reader.getUInt16();
+		}
+		else
+		{
+			itemID = reader.getUInt32();
+		}
+		
+		countBytesRead = reader.getPosition() - offset;
+	}
 }
